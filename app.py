@@ -3,6 +3,8 @@ import uuid
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Optional
+import os
+import threading
 
 from pydantic import BaseModel
 
@@ -12,6 +14,13 @@ from fastapi import FastAPI, UploadFile
 from fastapi.responses import FileResponse
 
 from tts import tts_model
+import facedriver 
+from stb import SpeechToBlendshape
+
+
+bs_parser=facedriver.BS_Parser(dataframe_wrapper=facedriver.USC55_to_ARKIT_Wrapper())
+face_driver = facedriver.FaceDriver(bs_parser=bs_parser)
+stb_model = SpeechToBlendshape()
 
 app = FastAPI()
 
@@ -49,6 +58,19 @@ def message_to_text(message_hash: str):
     with open(f'message/{message_hash}') as f:
         message = f.read()
     tts_model.to_wav(message, filepath)
+    bs_thread = threading.Thread(target=drive_face, args=(message_hash,))
+    bs_thread.start()
     return FileResponse(filepath, media_type="audio/wav")
 
 
+def drive_face(message_hash: str):
+    wav_path = Path(f'./data/{str(message_hash)}.wav').absolute()
+    result_dir = Path(f'./bs/{str(message_hash)}').absolute()
+    os.makedirs(result_dir, exist_ok=True)
+    stb_model.to_blendshape(wav_path=wav_path, output_dir=result_dir)
+    npy_files = list(result_dir.glob('*.npy'))
+    if len(npy_files) != 1:
+        print('Blendshape file not found.')
+        return
+    bs_path = npy_files[0]
+    face_driver.send(bs_path=bs_path)
