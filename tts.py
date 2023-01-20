@@ -40,11 +40,14 @@ class TTS_Model():
         if self.text2speech.use_speech:
             speech = torch.randn(50000, ) * 0.01
 
-        with torch.no_grad():
-            wav = self.text2speech(text, speech=speech, sids=sids)["wav"]
-        inferred = wav.view(-1).cpu().numpy()
-        if wav_path is not None:
-            audio_write(wav_path, rate=self.text2speech.fs, data=inferred)
+        try:
+            with torch.no_grad():
+                wav = self.text2speech(text, speech=speech, sids=sids)["wav"]
+            inferred = wav.view(-1).cpu().numpy()
+            if wav_path is not None:
+                audio_write(wav_path, rate=self.text2speech.fs, data=inferred)
+        except Exception as e:
+            print("Error: ", e)
 
 Mandarin_args = {
     'lang': 'Mandarin',
